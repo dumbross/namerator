@@ -4,8 +4,8 @@
 const config = {
     // Replace with your own GitHub username and repository
     owner: 'dumbross',
-    repo: 'namerator',
-    path: 'namerator-data/names.json',
+    repo: 'namerator-data',
+    path: 'names.json',
     // Generate a personal access token with repo scope at https://github.com/settings/tokens
     // NOTE: In a production app, you'd want to handle authentication more securely
     token: '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' 

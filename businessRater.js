@@ -6,10 +6,8 @@ const config = {
     owner: 'dumbross',
     repo: 'namerator-data',
     path: 'names.json',
-    // Generate a personal access token with repo scope at https://github.com/settings/tokens
-    // NOTE: In a production app, you'd want to handle authentication more securely
-    token: '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' 
-};
+    // OAuth configuration
+    clientId: 'Ov23liLz7RGjTm03B9QQ' 
 
 // Store business names in memory (loaded from GitHub)
 let businesses = [];
@@ -26,6 +24,52 @@ function getUserId() {
 
 // The current user ID
 const currentUserId = getUserId();
+
+// GitHub OAuth functions
+function getAccessToken() {
+    return localStorage.getItem('github_access_token');
+}
+
+function loginWithGitHub() {
+    // Calculate a random state value to prevent CSRF
+    const state = Math.random().toString(36).substring(2);
+    localStorage.setItem('oauth_state', state);
+    
+    // Redirect to GitHub authorization URL
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${config.clientId}&redirect_uri=${window.location.href}&state=${state}&scope=repo`;
+    window.location.href = authUrl;
+}
+
+function checkForAuthCode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const storedState = localStorage.getItem('oauth_state');
+    
+    // Clear the state from storage
+    localStorage.removeItem('oauth_state');
+    
+    // If we have a code and state matches (security check)
+    if (code && state && state === storedState) {
+        // We need to exchange the code for a token
+        // Since we can't do this directly from the client due to CORS,
+        // we need to use a small backend service or serverless function
+        // For now, we'll store the code in localStorage and show a message
+        localStorage.setItem('github_auth_code', code);
+        
+        // Clean up the URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        showNotification('Authentication successful! Please set up a backend service to exchange the code for a token.');
+        console.log('Auth code received:', code);
+        
+        // In a real app, we would now call our backend service to exchange the code
+        // exchangeCodeForToken(code);
+        return true;
+    }
+    
+    return false;
+}
 
 // Function to fetch data from GitHub
 async function fetchDataFromGitHub() {
@@ -55,10 +99,15 @@ async function fetchDataFromGitHub() {
 // Original API method as a fallback
 async function fetchDataFromGitHubAPI() {
     try {
+        const headers = {};
+        const token = getAccessToken();
+        
+        if (token) {
+            headers['Authorization'] = `token ${token}`;
+        }
+        
         const response = await fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`, {
-            headers: config.token ? {
-                'Authorization': `token ${config.token}`
-            } : {}
+            headers: headers
         });
         
         if (!response.ok) {
@@ -66,6 +115,13 @@ async function fetchDataFromGitHubAPI() {
             if (response.status === 404) {
                 return [];
             }
+            
+            // If unauthorized, prompt for login
+            if (response.status === 401 || response.status === 403) {
+                showGitHubLoginPrompt();
+                throw new Error(`GitHub API error: Authentication required`);
+            }
+            
             throw new Error(`GitHub API error: ${response.status}`);
         }
         
@@ -98,6 +154,12 @@ async function saveDataToGitHub() {
         // Cache data locally in case GitHub is unavailable
         localStorage.setItem('cachedBusinesses', JSON.stringify(businesses));
         
+        const token = getAccessToken();
+        if (!token) {
+            showGitHubLoginPrompt();
+            throw new Error('GitHub authentication required');
+        }
+        
         // Get current SHA (needed for updates)
         const sha = localStorage.getItem('dataSHA');
         
@@ -114,12 +176,16 @@ async function saveDataToGitHub() {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `token ${config.token}`
+                'Authorization': `token ${token}`
             },
             body: JSON.stringify(requestData)
         });
         
         if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                showGitHubLoginPrompt();
+                throw new Error('GitHub authentication error');
+            }
             throw new Error(`GitHub API error: ${response.status}`);
         }
         
@@ -130,9 +196,84 @@ async function saveDataToGitHub() {
         return true;
     } catch (error) {
         console.error('Error saving data:', error);
-        showNotification('Could not save to GitHub. Data stored locally for now.');
+        showNotification('Could not save to GitHub. Data stored locally for now.', true);
         return false;
     }
+}
+
+// Show GitHub login prompt
+function showGitHubLoginPrompt() {
+    // Check if we already have a prompt showing
+    if (document.querySelector('.github-login-prompt')) {
+        return;
+    }
+    
+    const promptDiv = document.createElement('div');
+    promptDiv.className = 'github-login-prompt notification';
+    promptDiv.innerHTML = `
+        <p>GitHub authentication required to save/load data</p>
+        <button id="github-login-btn">Login with GitHub</button>
+        <button class="close-btn">✕</button>
+    `;
+    
+    document.body.appendChild(promptDiv);
+    
+    // Add event listeners
+    promptDiv.querySelector('#github-login-btn').addEventListener('click', () => {
+        loginWithGitHub();
+        promptDiv.remove();
+    });
+    
+    promptDiv.querySelector('.close-btn').addEventListener('click', () => {
+        promptDiv.remove();
+    });
+    
+    // Add styles for the prompt
+    const style = document.createElement('style');
+    style.textContent += `
+        .github-login-prompt {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 300px;
+            color: #333;
+        }
+        
+        .github-login-prompt button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        #github-login-btn {
+            background-color: #2da44e;
+            color: white;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            color: #666;
+            padding: 2px 6px;
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 // Show a notification to the user
@@ -374,6 +515,15 @@ function setupDataManagement() {
     const clearDataBtn = document.getElementById('clear-data-btn');
     const fixLegacyDataBtn = document.getElementById('fix-legacy-data-btn');
     const refreshDataBtn = document.getElementById('refresh-data-btn');
+    const loginBtn = document.createElement('button');
+    
+    loginBtn.id = 'github-login-btn';
+    loginBtn.textContent = 'Login with GitHub';
+    loginBtn.addEventListener('click', loginWithGitHub);
+    
+    // Add login button to admin panel
+    const adminActions = document.querySelector('.admin-actions');
+    adminActions.appendChild(loginBtn);
     
     clearDataBtn.addEventListener('click', async function() {
         if (confirm('Are you sure you want to delete ALL business names? This cannot be undone.')) {
@@ -513,6 +663,9 @@ async function initApp() {
     setupAdminPanel();
     setupFormSubmission();
     setupDataManagement();
+    
+    // Check for GitHub auth code in URL (from OAuth redirect)
+    checkForAuthCode();
     
     // Setup data sync
     setupDataSync();

@@ -33,6 +33,28 @@ async function fetchDataFromGitHub() {
         // Show loading state
         document.getElementById('business-list').innerHTML = '<p>Loading submissions...</p>';
         
+        // Try using the raw content URL directly
+        const rawUrl = `https://raw.githubusercontent.com/${config.owner}/${config.repo}/main/names.json`;
+        const response = await fetch(rawUrl);
+        
+        if (!response.ok) {
+            // If direct URL fails, try the API
+            return fetchDataFromGitHubAPI();
+        }
+        
+        // Parse JSON directly
+        businesses = await response.json();
+        return businesses;
+    } catch (error) {
+        console.error('Error fetching data directly:', error);
+        // Fall back to API method
+        return fetchDataFromGitHubAPI();
+    }
+}
+
+// Original API method as a fallback
+async function fetchDataFromGitHubAPI() {
+    try {
         const response = await fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`, {
             headers: config.token ? {
                 'Authorization': `token ${config.token}`
@@ -57,7 +79,7 @@ async function fetchDataFromGitHub() {
         
         return businesses;
     } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching data from API:', error);
         // If there's an error, use cached data if available
         const cachedData = localStorage.getItem('cachedBusinesses');
         if (cachedData) {

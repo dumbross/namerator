@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Name Rater</title>
+    <!-- External CSS file -->
+    <link rel="stylesheet" href="businessRater.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Business Name Rater</h1>
+        <p>Submit your business name ideas and rate others' submissions!</p>
+        
+        <!-- GitHub info banner -->
+        <div class="github-info">
+            <p>This app stores data in a shared GitHub repository so all users can see each other's submissions.</p>
+        </div>
+        
+        <!-- Admin toggle button -->
+        <div class="admin-toggle" id="admin-toggle">⚙️</div>
+        
+        <!-- Admin panel -->
+        <div class="admin-panel" id="admin-panel">
+            <h3>Data Management</h3>
+            <div class="admin-actions">
+                <button id="clear-data-btn" class="danger-btn">Clear All Business Names</button>
+                <button id="fix-legacy-data-btn">Fix Legacy Data</button>
+                <!-- Refresh button added in JS -->
+            </div>
+            <div class="storage-info">
+                <p><strong>Storage Info:</strong> Data is saved in a GitHub repository.</p>
+                <p id="storage-usage">Current usage: Calculating...</p>
+            </div>
+        </div>
+        
+        <form id="business-form">
+            <div>
+                <label for="business-name">Business Name:</label>
+                <input type="text" id="business-name" required placeholder="Enter a business name">
+            </div>
+            
+            <div>
+                <label>Category:</label>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" id="serious" name="category" value="serious" required>
+                        <label for="serious">Serious</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="punny" name="category" value="punny">
+                        <label for="punny">Punny</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="unsure" name="category" value="unsure">
+                        <label for="unsure">Unsure</label>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit">Submit Business Name</button>
+        </form>
+    </div>
+    
+    <div class="container">
+        <h2>Submitted Business Names</h2>
+        <div id="empty-state" class="empty-state">
+            <p>No business names submitted yet. Be the first to add one!</p>
+        </div>
+        <ul id="business-list" class="business-list"></ul>
+    </div>
+    
+    <!-- Reference to the external JavaScript file -->
+    <script src="businessRater.js"></script>
+</body>
+</html>

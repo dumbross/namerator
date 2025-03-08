@@ -8,7 +8,7 @@ const config = {
     path: 'names.json',
     // Generate a personal access token with repo scope at https://github.com/settings/tokens
     // NOTE: In a production app, you'd want to handle authentication more securely
-    token: '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' 
+    token: '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' 
 };
 
 // Store business names in memory (loaded from GitHub)
